@@ -1,0 +1,33 @@
+pipeline {
+  agent any
+  tools { maven 'Maven3' }
+  parameters {
+    choice(name: 'ENV', choices: ['dev','qa','prod'])
+  }
+  stages {
+    stage('Build') {
+      steps { sh 'mvn -B clean package -DskipTests' }
+    }
+    stage('Test') {
+      steps { sh 'mvn -B test' }
+    }
+    stage('Image') {
+      steps { sh 'docker build -t demo-app:$BUILD_NUMBER .' }
+    }
+    stage('Deploy') {
+      steps { echo "Deploying to ${params.ENV}" }
+    }
+  }
+  post {
+    always {
+      junit allowEmptyResults: true,
+        testResults: 'target/surefire-reports/*.xml'
+    }
+    success { archiveArtifacts 'target/*.jar' }
+    failure {
+      mail to: 'you@gmail.com',
+        subject: "FAILED: ${env.JOB_NAME}",
+        body: "${env.BUILD_URL}"
+    }
+  }
+}
